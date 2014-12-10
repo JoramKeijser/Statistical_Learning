@@ -1,0 +1,63 @@
+---
+title: 'Assignment 2: Classification'
+author: "Joram Keijser"
+date: "Wednesday, December 10, 2014"
+output: html_document
+---
+
+```{r package, include=FALSE}
+install.packages("randomForest", repos = "http://cran.xl-mirror.nl/")
+library("randomForest")
+```
+
+### 0. Introduction
+
+First, download the data. 
+```{r download, cache=TRUE, tidy=TRUE}
+attributes <- c("class", "handicap", "water", "adoption", "physician", "el-salvador", 
+                "religious", "sattelite", "nicaraguan", 
+                "missile", "immigration", "synfuels", "education", "superfund", "crime", 
+                "dut-free",                 "export")
+Data <- read.table("http://archive.ics.uci.edu/ml/machine-learning-databases/voting-records/house-votes-84.data", sep = ',', col.names = attributes, na.strings = "?")
+```
+
+There are `r sum(is.na(Data))` missing values. We replace the missing values
+by the most occuring value in the particular. For example, if
+most votes on the `handicap` topic were a yes, than the missing votes on
+this topic will taken to be yes. This is done by the `na.roughfix` function. 
+```{r missing, cache=TRUE}
+Data <- na.roughfix(Data)
+```
+
+```{r meanVotes, include=FALSE, cache=TRUE}
+REP <- Data$class == "republican"
+DEM <- Data$class == "democrat"
+meanVotes <- data.frame(matrix(ncol = dim(Data)[2], nrow = 2))
+names(meanVotes) <- attributes
+meanVotes[1,1] <- "Republican"
+meanVotes[2,1] <- "Democrat"
+for( k in 2:dim(Data)[2] ) {
+  meanVotes[1, k] <- mean(Data[REP, k] == "y")
+  meanVotes[2, k] <- mean(Data[DEM, k] == "y")
+}
+```
+Next, we will make some plots to get a feel for the data. 
+The biggest differences in voting behaviour are observed on the topics
+Physician, duty-free, education, missile and adoption. 
+```{r plots1}
+## plot mean number of yes's per party
+par(las=2) # make label text perpendicular to axis
+par(mar=c(5,8,4,2)) # increase y-axis margin.
+barplot(as.matrix(meanVotes[,-1]), beside = TRUE, col = c("red", "blue"), horiz=T, xlim=c(0,1))
+#sort(apply(meanVotes, 2, function(x){ max(x)/min(x)}), decreasing = TRUE)
+```
+
+Finallly, divide the data in a training and test set.
+```{r test/train, cache=TRUE}
+trainIndex <- sample.int(dim(Data)[1], size = round(dim(Data)[1]/2))
+Train <- Data[trainIndex, ]
+Test <- Data[-trainIndex, ]
+```
+
+### 1. Naive Bayes classification
+
