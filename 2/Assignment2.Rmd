@@ -61,3 +61,7 @@ Test <- Data[-trainIndex, ]
 
 ### 1. Naive Bayes classification
 
+```{r NBpackage, include = FALSE}
+install.packages("e1071", repos = "http://cran.xl-mirror.nl/")
+library("e1071")
+```
