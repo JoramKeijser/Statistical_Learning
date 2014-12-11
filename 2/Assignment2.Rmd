@@ -13,8 +13,8 @@ library("randomForest")
 ### 0. Introduction
 
 First, download the data. 
-```{r download, cache=TRUE, tidy=TRUE}
-attributes <- c("class", "handicap", "water", "adoption", "physician", "el-salvador", 
+```{r download}
+attributes <- c("party", "handicap", "water", "adoption", "physician", "el-salvador", 
                 "religious", "sattelite", "nicaraguan", 
                 "missile", "immigration", "synfuels", "education", "superfund", "crime", 
                 "dut-free",                 "export")
@@ -25,13 +25,13 @@ There are `r sum(is.na(Data))` missing values. We replace the missing values
 by the most occuring value in the particular. For example, if
 most votes on the `handicap` topic were a yes, than the missing votes on
 this topic will taken to be yes. This is done by the `na.roughfix` function. 
-```{r missing, cache=TRUE}
+```{r missing}
 Data <- na.roughfix(Data)
 ```
 
-```{r meanVotes, include=FALSE, cache=TRUE}
-REP <- Data$class == "republican"
-DEM <- Data$class == "democrat"
+```{r meanVotes, include=FALSE}
+REP <- Data$party == "republican"
+DEM <- Data$party == "democrat"
 meanVotes <- data.frame(matrix(ncol = dim(Data)[2], nrow = 2))
 names(meanVotes) <- attributes
 meanVotes[1,1] <- "Republican"
@@ -41,19 +41,27 @@ for( k in 2:dim(Data)[2] ) {
   meanVotes[2, k] <- mean(Data[DEM, k] == "y")
 }
 ```
-Next, we will make some plots to get a feel for the data. 
-The biggest differences in voting behaviour are observed on the topics
-Physician, duty-free, education, missile and adoption. 
+Next, we will take a first look at the data. There are `r sum(REP)` republicans
+and `r sum(DEM)` democrats. On average, both parties voted 
+in favour approximately half of the time. 
+The biggest differences in voting behaviour are observed on the topic
+Physician. The majority, `r 100*mean(Data[DEM, "physician"] == "y")`, percent
+of the democrats voted in favour. On the other hand, `r 100*mean(Data[REP, "physician"] == "y")` of the republicans voted against the proposal. This indicates that it should be possible
+to make accurate predictions, based only on the votin behaviour on this single topic.
 ```{r plots1}
 ## plot mean number of yes's per party
 par(las=2) # make label text perpendicular to axis
 par(mar=c(5,8,4,2)) # increase y-axis margin.
-barplot(as.matrix(meanVotes[,-1]), beside = TRUE, col = c("red", "blue"), horiz=T, xlim=c(0,1))
+colours = c("red", "darkblue")
+barplot(100*as.matrix(meanVotes[,-1]), beside = TRUE, col = colours, horiz=T, 
+        xlim=c(0,100), xlab="Percentage of party voted in favour", ylab="Topic")
+legend("bottomright", legend = c("Repulicans", "Democrats"), fill = colours)
 #sort(apply(meanVotes, 2, function(x){ max(x)/min(x)}), decreasing = TRUE)
 ```
 
 Finallly, divide the data in a training and test set.
-```{r test/train, cache=TRUE}
+```{r test/train}
+set.seed(123)
 trainIndex <- sample.int(dim(Data)[1], size = round(dim(Data)[1]/2))
 Train <- Data[trainIndex, ]
 Test <- Data[-trainIndex, ]
@@ -64,4 +72,28 @@ Test <- Data[-trainIndex, ]
 ```{r NBpackage, include = FALSE}
 install.packages("e1071", repos = "http://cran.xl-mirror.nl/")
 library("e1071")
+```
+Train Naive Bayes classifier for different values of alpha.
+```{r NB, cache=TRUE}
+alpha = c(1, 0.1, 10)
+lossNB <- data.frame(matrix(ncol = length(alpha), nrow = dim(Train)[1]))
+colnames(lossNB) <- alpha
+rownames(lossNB) <- 1:dim(Train)[1]
+for(n in 1:dim(Train)[1]) { 
+  for( k in 1:length(alpha)) {
+    tempTrain <- Train[1:n, ]
+    NB <- naiveBayes(party ~., data = tempTrain, alpha = alpha[k])
+    prediction <- predict(NB, newdata = Test)
+    lossNB[n, k] <- mean(Test$party != prediction)
+  }
+}
+```
+Mean 0/1 is the same when using all training data, namely
+`r lossNB[length(lossNB), 1]`.
+
+Comparable results for $n=2$ and $n=218$! Why? Maybe highly predicting
+features. Try without physician etc. 
+
+```{r plotNBloss}
+plot(lossNB[, 1], type = 'l')
 ```
