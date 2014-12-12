@@ -45,8 +45,8 @@ Next, we will take a first look at the data. There are `r sum(REP)` republicans
 and `r sum(DEM)` democrats. On average, both parties voted 
 in favour approximately half of the time. 
 The biggest differences in voting behaviour are observed on the topic
-Physician. The majority, `r 100*mean(Data[DEM, "physician"] == "y")`, percent
-of the democrats voted in favour. On the other hand, `r 100*mean(Data[REP, "physician"] == "y")` of the republicans voted against the proposal. This indicates that it should be possible
+Physician. Only `r 100*mean(Data[DEM, "physician"] == "y")`percent
+of the democrats voted in favour. On the other hand, `r 100*mean(Data[REP, "physician"] == "y")` of the republicans were in favour. This indicates that it should be possible
 to make accurate predictions, based only on the votin behaviour on this single topic.
 ```{r plots1}
 ## plot mean number of yes's per party
@@ -57,6 +57,9 @@ barplot(100*as.matrix(meanVotes[,-1]), beside = TRUE, col = colours, horiz=T,
         xlim=c(0,100), xlab="Percentage of party voted in favour", ylab="Topic")
 legend("bottomright", legend = c("Repulicans", "Democrats"), fill = colours)
 #sort(apply(meanVotes, 2, function(x){ max(x)/min(x)}), decreasing = TRUE)
+sort(apply(meanVotes[,-1], 2, function(x){ 
+max(as.vector(x, mode = "numeric"))/min(as.vector(x, mode = "numeric"))}), 
+decreasing = TRUE)
 ```
 
 Finallly, divide the data in a training and test set.
@@ -88,12 +91,23 @@ for(n in 1:dim(Train)[1]) {
   }
 }
 ```
-Mean 0/1 is the same when using all training data, namely
-`r lossNB[length(lossNB), 1]`.
+Mean 0/1-loss is approximately the same when using all training data, namely
+`r lossNB[length(lossNB), 1]`. Results are approximately the same for
+all $alpha$'s.
 
 Comparable results for $n=2$ and $n=218$! Why? Maybe highly predicting
-features. Try without physician etc. 
+features. Try with and without physician etc. 
 
 ```{r plotNBloss}
-plot(lossNB[, 1], type = 'l')
+plot(lossNB[, 1], type = 'l', xlab="Size of training set", ylab = "Mean 0/1-loss")
 ```
+
+### 2. Logistic Regression
+
+
+
+
+### 3. Logistic Regression on first attributes
+
+### 4. Comparison
+### 5. Subset search.
