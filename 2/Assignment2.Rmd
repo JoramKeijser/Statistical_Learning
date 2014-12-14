@@ -1,4 +1,4 @@
----
+?---
 title: 'Assignment 2: Classification'
 author: "Joram Keijser"
 date: "Wednesday, December 10, 2014"
@@ -64,7 +64,7 @@ decreasing = TRUE)
 
 Finallly, divide the data in a training and test set.
 ```{r test/train}
-set.seed(123)
+set.seed(14122014)
 trainIndex <- sample.int(dim(Data)[1], size = round(dim(Data)[1]/2))
 Train <- Data[trainIndex, ]
 Test <- Data[-trainIndex, ]
@@ -99,15 +99,37 @@ Comparable results for $n=2$ and $n=218$! Why? Maybe highly predicting
 features. Try with and without physician etc. 
 
 ```{r plotNBloss}
-plot(lossNB[, 1], type = 'l', xlab="Size of training set", ylab = "Mean 0/1-loss")
+plot(lossNB[, 1],  xlab="Size of training set", ylab = "Mean 0/1-loss")
 ```
 
 ### 2. Logistic Regression
+```{r logr2, warning=FALSE}
+lr <- glm(party ~., data = Train, family = binomial("logit"))
+summary(lr)
+```
 
-
+```{r logr, warning=FALSE}
+getLoss <- function(tempTrain) {
+  lr <- glm(party ~., data = tempTrain, family = binomial("logit"))
+  lr.prob = predict(lr, newdata = Test, type = "response")
+  lr.pred = ifelse(lr.prob > 0.5, "republican", "democrat")
+  mean(lr.pred != Test$party)
+}
+lossLR <- rep(1, length(dim(Train)[1]))
+for(n in 1:218) { 
+  tempTrain <- Train[1:n, ]
+  lossLR[n] <- tryCatch(getLoss(tempTrain), error = function(c) 1)
+}
+plot(lossLR[lossLR < 1], xlab = "size of training set", ylab = "mean 0/1-loss")
+#TO DO: confusion matrix, Naive Bayes line. 
+```
+When using all `r dim(Train)[1]` training examples, it's 
+mean 0/1-loss equals `r tail(lossLR, n = 1)`. Logistic regression outperforms 
+Naive Bayes from approximately n = `r which(lossNB > lossLR)[1]`.
 
 
 ### 3. Logistic Regression on first attributes
+
 
 ### 4. Comparison
 ### 5. Subset search.
