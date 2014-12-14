@@ -103,7 +103,7 @@ plot(lossNB[, 1],  xlab="Size of training set", ylab = "Mean 0/1-loss")
 ```
 
 ### 2. Logistic Regression
-```{r logr2, warning=FALSE}
+```{r logr0, warning=FALSE}
 lr <- glm(party ~., data = Train, family = binomial("logit"))
 summary(lr)
 ```
@@ -129,7 +129,28 @@ Naive Bayes from approximately n = `r which(lossNB > lossLR)[1]`.
 
 
 ### 3. Logistic Regression on first attributes
+```{r logr2, warning=FALSE}
+lr <- glm(party ~., data = Train[1:3], family = binomial("logit"))
+summary(lr)
+```
 
+```{r logr4, warning=FALSE}
+getLoss <- function(tempTrain) {
+  lr <- glm(party ~., data = tempTrain, family = binomial("logit"))
+  lr.prob = predict(lr, newdata = Test, type = "response")
+  lr.pred = ifelse(lr.prob > 0.5, "republican", "democrat")
+  mean(lr.pred != Test$party)
+}
+lossLR2 <- rep(1, length(dim(Train)[1]))
+for(n in 1:218) { 
+  tempTrain <- Train[1:n, 1:3]
+  lossLR2[n] <- tryCatch(getLoss(tempTrain), error = function(c) 1)
+}
+plot(lossLR2[lossLR2 < 1], xlab = "size of training set", ylab = "mean 0/1-loss")
+```
 
 ### 4. Comparison
+```{r comparison}
+performance = cbind(lossNB, lossLR, lossLR2)
+```
 ### 5. Subset search.
