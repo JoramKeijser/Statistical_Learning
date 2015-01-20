@@ -169,8 +169,7 @@ and subset logistic regression).
 
 ```{r together, include=FALSE}
 getLosses <- function(STEP){
-  # input: number of steps STEP to skip,d
-  N = dim()[1]
+  N = dim(Train)[1]
   sampleSizes <- seq(1, N, by = STEP)
   ## Naive Bayes:
   getNBloss <- function(Train, Test) {
@@ -181,19 +180,19 @@ getLosses <- function(STEP){
       for( k in 1:length(alpha)) {
         tempTrain <- Train[1:n, ]
         NB <- naiveBayes(party ~., data = tempTrain, alpha = alpha[k])
-        prediction <- predict(NB, newdata = dataset)
-        lossNB[n, k] <- mean(dataset$party != prediction)
+        prediction <- predict(NB, newdata = Test)
+        lossNB[n, k] <- mean(Test$party != prediction)
       }
     }
     return(lossNB)
   }
-  
+
   # Logistic regression:
   tryGetLoss <- function(tempTrain) {
     lr <- glm(party ~., data = tempTrain, family = binomial("logit"))
-    lr.prob = predict(lr, newdata = dataset, type = "response")
+    lr.prob = predict(lr, newdata = Test, type = "response")
     lr.pred = ifelse(lr.prob > 0.5, "republican", "democrat")
-    mean(lr.pred != dataset$party)
+    mean(lr.pred != Test$party)
   }
   getLRloss <- function(Train, Test) {
     lossLR <- rep(NA, length(sampleSizes))
@@ -203,12 +202,12 @@ getLosses <- function(STEP){
     }
     return(lossLR)
   }
-  
+
   trainIndex <- sample.int(dim(Data)[1], size = round(dim(Data)[1]/2))
   Train <- Data[trainIndex, ]
   Test <- Data[-trainIndex, ]
-  
-  
+
+
   return(cbind(getNBloss(Train, Test), 
                LRloss = getLRloss(Train, Test), 
                LR2loss = getLRloss(Train[, 1:3], Test[1:3])))
@@ -222,14 +221,14 @@ library("zoo")
 ```{r comparisonfunction, cache=TRUE}
 calculateMeanPerformance <- function(reps = 10, dataset){ 
   # input: dataset of wich loss should be calculated. Either test or train.
-test <- replicate(reps, getLosses(STEP = 12, dataset), simplify = FALSE)
+test <- replicate(reps, getLosses(STEP = 12), simplify = FALSE)
 meanPerformance <- Reduce("+", test) / length(test) #average
 meanPerformance <- na.approx(meanPerformance) # interpolate
 return(meanPerformance)
 }
 ```
 ```{r Testcomparison, warning=FALSE, cache=TRUE}
-TestPerformance <- calculateMeanPerformance(dataset = Test)
+TestPerformance <- calculateMeanPerformance()
 ```
 
 ```{r TestcomparisonPlot}
@@ -264,16 +263,17 @@ This is probably due to the fact that after this point, all is learned wat can b
 from the data. There are no new combinations to be found which would enable a better separation of the classes.
 
 ```{r Trainperformance, warning=FALSE, cache=TRUE}
-TrainPerformance <- calculateMeanPerformance(dataset = Train)
+#TrainPerformance <- calculateMeanPerformance(dataset = Train)
 ```
 ```{r TtraincomparisonPlot}
-plotPerformance(TrainPerformance)
-title(main = 'Training errors')
+#plotPerformance(TrainPerformance)
+#title(main = 'Training errors')
 ```
 TO DO:
 1. Laplace smoothing maakt helemaal geen vershil. Waarom niet?
 2. Verschil test/training error (overfitting?)
 3. Prediction probabilities. 
 4. Bonus: penalized logistic regression. 
+5. Comments
 ### 6. BONUS!!!:D
 ### 6. Subset search.
