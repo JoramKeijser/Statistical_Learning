@@ -1,4 +1,4 @@
-w?---
+---
 title: 'Assignment 2: Classification'
 author: "Joram Keijser"
 date: "Wednesday, December 10, 2014"
@@ -168,10 +168,9 @@ Make wrapper method `getLosses` for three algorithms (Naive Bayes, logistic regr
 and subset logistic regression). 
 
 ```{r together, include=FALSE}
-getLosses <- function(STEP, dataset){
-  # input: number of steps STEP to skip,
-  # dataset (test or train) for which losses should be calculated
-  N = dim(dataset)[1]
+getLosses <- function(STEP){
+  # input: number of steps STEP to skip,d
+  N = dim()[1]
   sampleSizes <- seq(1, N, by = STEP)
   ## Naive Bayes:
   getNBloss <- function(Train, Test) {
@@ -235,26 +234,34 @@ TestPerformance <- calculateMeanPerformance(dataset = Test)
 
 ```{r TestcomparisonPlot}
 plotPerformance <- function(meanPerformance) {
-  plot(c(0, 200), c(0, 0.5), type = 'n', 
+  plot(c(0, 220), c(0, 0.6), type = 'n', 
        xlab = "Size of training set", ylab = "mean 0/1-loss",)
-  colors = c(1, 26, 33, 142, 524)
-  for(i in 1:5) {
-    lines(meanPerformance[, i], type = 'p', col = colors[i-1])
+  colors = c("black", "blue", "red")
+  for(i in 1:3) { # 1 time NB
+    lines(meanPerformance[, i+2], type = 'l', col = colors[i])
   }
-  legend(150,0.4, c("NB1", "NB2", "NB3", "LG1", "LG2"), lty=rep(1, 5), 
+  legend(150,0.6, c("NB", "LG1", "LG2"), lty=rep(1, 5), 
          lwd=rep(2.5, 5), col=colors)
 }
 plotPerformance(TestPerformance)
-title(main = 'Tets errors')
+title(main = 'Test errors')
 ```
-### 5. Analysis
+
+
+### 5. Discussion
 All three implementations of Naive Bayes perform exactly the same. 
 The smoothing parameters does not have the slightest influence. 
 For small training sizes, Naive Bayes outperforms logistic regression.
-From approximately $n = 75$, logistic regression beats Naive Bayes. 
-This is in accordance with the theory (Andrew Y. Ng, Michael Jordan: On Discriminative vs. Generative Classifiers: A comparison of logistic regression and Naive Bayes, NIPS 2001). Logistic regression done on the first features is clearly undesirable. 
-Finally, all methods roughly reach their best performance for a training set size 
-of 75 examples. After that, performance improves only slightly. 
+Interestingly, the Naive Bayes error does not decrease
+ofter given only about 25 training examples. It takes 
+approximately 75 examples for logistic regression to Naive Bayes. 
+Long after that, logistic regression is still improving, 
+whereas Naive Bayes does not benefit from the new data. 
+This is in accordance with the theory (Andrew Y. Ng, Michael Jordan: On Discriminative vs. Generative Classifiers: A comparison of logistic regression and Naive Bayes, NIPS 2001). Logistic regression done on the first features is clearly undesirable. It has a very large error compared to the other
+methods. The error levels off after $n=75$ examples. Much faster than 
+logistic regression on all features, but still slower than Naive Bayes. 
+This is probably due to the fact that after this point, all is learned wat can be learned
+from the data. There are no new combinations to be found which would enable a better separation of the classes.
 
 ```{r Trainperformance, warning=FALSE, cache=TRUE}
 TrainPerformance <- calculateMeanPerformance(dataset = Train)
@@ -263,8 +270,10 @@ TrainPerformance <- calculateMeanPerformance(dataset = Train)
 plotPerformance(TrainPerformance)
 title(main = 'Training errors')
 ```
-VRAGEN:
+TO DO:
 1. Laplace smoothing maakt helemaal geen vershil. Waarom niet?
 2. Verschil test/training error (overfitting?)
+3. Prediction probabilities. 
+4. Bonus: penalized logistic regression. 
 ### 6. BONUS!!!:D
 ### 6. Subset search.
