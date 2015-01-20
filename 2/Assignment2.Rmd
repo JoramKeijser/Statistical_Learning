@@ -79,7 +79,7 @@ library("e1071")
 Train Naive Bayes classifier for different values of alpha.
 ```{r NB, cache=TRUE}
 alpha = c(1, 0.1, 10)
-getNBloss <- function(Train) {
+getNBloss <- function(lossData = Test) {
   N <- dim(Train)[1]
   lossNB <- data.frame(matrix(ncol = length(alpha), nrow = N))
   colnames(lossNB) <- alpha
@@ -87,30 +87,62 @@ getNBloss <- function(Train) {
   for(n in 1:N) { 
     for( k in 1:length(alpha)) {
       tempTrain <- Train[1:n, ]
-      NB <- naiveBayes(party ~., data = tempTrain, alpha = alpha[k])
-      prediction <- predict(NB, newdata = Test)
-      lossNB[n, k] <- mean(Test$party != prediction)
+      NB <- naiveBayes(party ~., data = tempTrain, laplace = alpha[k])
+      prediction <- predict(NB, newdata = lossData)
+      lossNB[n, k] <- mean(lossData$party != prediction)
     }
   }
   return(lossNB)
 }
-lossNB <- getNBloss(Train)
+lossNB <- getNBloss(Test)
 ```
-Mean 0/1-loss is approximately the same when using all training data, namely
-`r lossNB[length(lossNB), 1]`. Results are approximately the same for
-all $alpha$'s.
 
-Comparable results for $n=2$ and $n=218$! Why? Maybe highly predicting
-features. Try with and without physician etc. 
+```{r TrainNB, cache=TRUE, include=FALSE}
+trainLoss <- getNBloss(Train)
+pred <- predict(NB, newdata = Test, type = "raw")
+```
+Mean 0/1-losses when using all training data equals
+`r tail(lossNB, n = 1)` for $\alpha = 0.1, 1, 10$. The training losses are all equal to `r tail(trainLoss[,1], n= 1)`. Hence, the difference with the test error is neglectable and overfitting does not seem 
+to be an issue. 
+The difference, however small, increases with $\alpha$. Any overfitting 
+would hence occur for $\alpha = 10$. 
+Plotting the errors versus the size of the training set shows that the different values of
+$\alpha$ matter for small sample sizes. There is virtually no difference between
+$\alpha = 0.1$ and $\alpha = 1$. The error is slightly higher for $\alpha = 10$. 
+This difference vanishes for approximately $n=120$ and up. This is as might be expected,
+since adding 10 virtual counts does not matter when the actual count is high. 
+For the full model, `r 100*mean(pred[,2] > 0.9 | pred[,2] < 0.1)` percent of 
+the probability estimates are 'extreme': higher than 0.9 or lower than 0.1.
 
-```{r plotNBloss}
-plot(lossNB[, 1],  xlab="Size of training set", ylab = "Mean 0/1-loss")
+```{r plotNBloss, include=FALSE}
+plot(c(0, 220), c(0, 0.6), type = 'n', 
+xlab = "Size of training set", ylab = "mean 0/1-loss",)
+colors = c("black", "blue", "red")
+for(i in 1:3) { # 1 time NB
+lines(lossNB[i], type = 'l', col = colors[i])
+}
+legend(150,0.6, c("0.1", "1", "1"), lty=rep(1, 5), 
+lwd=rep(2.5, 5), col=colors)
+title(main = 'Training errors')
+```
+
+```{r plotNBTESTloss, include=FALSE}
+plot(c(0, 220), c(0, 0.6), type = 'n', 
+xlab = "Size of training set", ylab = "mean 0/1-loss",)
+colors = c("black", "blue", "red")
+for(i in 1:3) { # 1 time NB
+lines(trainLoss[i], type = 'l', col = colors[i])
+}
+legend(150,0.6, c("0.1", "1", "1"), lty=rep(1, 5), 
+lwd=rep(2.5, 5), col=colors)
+title(main = 'Test errors')
 ```
 
 ### 2. Logistic Regression
+Next, we turn to logistic regression. 
 ```{r logr0, warning=FALSE}
-lr <- glm(party ~., data = Train, family = binomial("logit"))
-summary(lr)
+#lr <- glm(party ~., data = Train, family = binomial("logit"))
+#summary(lr)
 ```
 
 ```{r logr, warning=FALSE}
@@ -132,17 +164,20 @@ lossLR <- getLRloss(Train)
 plot(lossLR[lossLR < 1], xlab = "size of training set", ylab = "mean 0/1-loss")
 #TO DO: confusion matrix, Naive Bayes line. 
 ```
-When using all `r dim(Train)[1]` training examples, it's 
-mean 0/1-loss equals `r tail(lossLR, n = 1)`. Logistic regression outperforms 
-Naive Bayes from approximately n = `r which(lossNB > lossLR)[1]`.
+
+```{r LRtrainLoss, cache=TRUE, include=FALSE}
+lr <- glm(party ~., data = Train, family = binomial("logit"))
+lr.prob = predict(lr, type = "response")
+lr.pred = ifelse(lr.prob > 0.5, "republican", "democrat")
+trainLoss <- mean(lr.pred != Train$party) 
+```
+When using all `r dim(Train)[1]` training examples, the 
+mean 0/1-loss equals `r tail(lossLR, n = 1)`. The error on the training set
+is approximately half of that, `r trainLoss`. This indicates a some overfitting. 
 
 
 ### 3. Logistic Regression on first attributes
-In this case, the result is nearly not as good as when regressing 
-on all variables. It isn't even as good as Naive Bayes. Interestingly,
-performance does not improve after seeing approximately $n=75$ training examples.
-Perhaps all useful possible combinations of the 2 features and the class have been seen
-at this point. 
+Finally, we regress only on the first two attributes, `r names(Train[,2])` and `r names(Train[,3])`. 
 ```{r logr2, warning=FALSE}
 lr <- glm(party ~., data = Train[1:3], family = binomial("logit"))
 summary(lr)
@@ -162,10 +197,26 @@ getLR2loss <- function(Train) {
 lossLR2 <- getLR2loss(Train)
 plot(lossLR2[lossLR2 < 1], xlab = "size of training set", ylab = "mean 0/1-loss")
 ```
+```{r, cache=TRUE, include=FALSE}
+tempTrain <- Train[, 1:3]
+lr.prob = predict(lr, type = "response")
+lr.pred = ifelse(lr.prob > 0.5, "republican", "democrat")
+TrainLoss <- mean(lr.pred != Train$party) #0.31 crappier
+```
+
+In this case, the result is nearly not as good as when regressing 
+on all variables. It isn't even as good as Naive Bayes. Interestingly,
+performance does not improve after seeing approximately $n=75$ training examples.
+Perhaps all useful possible combinations of the 2 features and the class have been seen
+at this point. The test and trianing error equal `r tail(lossLR2, n = 1)` and `r TrainLoss`, 
+respectively. It is very surprising that the training error is the highest of the two.
+The difference is not very big, but we are definitely not overfitting here. This
+is actually not very surprising, since the model is very simple. 
 
 ### 4. Comparison
-Make wrapper method `getLosses` for three algorithms (Naive Bayes, logistic regression
-and subset logistic regression). 
+We write a wrapper method `getLosses` for calculating the losses of the three algorithms (Naive Bayes, logistic regression and subset logistic regression) all at once. Then, we 
+calculate the mean performance over multiple runs. We average the result to obtain a somewhat
+smoother plot. In the resulting figure, the three Naive Bayes versions are indistinguishable from eachother.
 
 ```{r together, include=FALSE}
 getLosses <- function(STEP){
@@ -179,7 +230,7 @@ getLosses <- function(STEP){
     for(n in sampleSizes) { 
       for( k in 1:length(alpha)) {
         tempTrain <- Train[1:n, ]
-        NB <- naiveBayes(party ~., data = tempTrain, alpha = alpha[k])
+        NB <- naiveBayes(party ~., data = tempTrain, laplace = alpha[k])
         prediction <- predict(NB, newdata = Test)
         lossNB[n, k] <- mean(Test$party != prediction)
       }
@@ -219,7 +270,7 @@ install.packages("zoo", repos = "http://cran.xl-mirror.nl/")
 library("zoo")
 ``` 
 ```{r comparisonfunction, cache=TRUE}
-calculateMeanPerformance <- function(reps = 10, dataset){ 
+calculateMeanPerformance <- function(reps = 10){ 
   # input: dataset of wich loss should be calculated. Either test or train.
 test <- replicate(reps, getLosses(STEP = 12), simplify = FALSE)
 meanPerformance <- Reduce("+", test) / length(test) #average
@@ -235,11 +286,11 @@ TestPerformance <- calculateMeanPerformance()
 plotPerformance <- function(meanPerformance) {
   plot(c(0, 220), c(0, 0.6), type = 'n', 
        xlab = "Size of training set", ylab = "mean 0/1-loss",)
-  colors = c("black", "blue", "red")
-  for(i in 1:3) { # 1 time NB
-    lines(meanPerformance[, i+2], type = 'l', col = colors[i])
+  colors = c("black", "blue", "red", "yellow", "orange")
+  for(i in 1:5) { # 1 time NB
+    lines(meanPerformance[, i], type = 'l', col = colors[i])
   }
-  legend(150,0.6, c("NB", "LG1", "LG2"), lty=rep(1, 5), 
+  legend(150,0.6, c("NB 0.1", "NB 1", "NB 10",  "LG", "LG 2"), lty=rep(1, 5), 
          lwd=rep(2.5, 5), col=colors)
 }
 plotPerformance(TestPerformance)
@@ -248,8 +299,9 @@ title(main = 'Test errors')
 
 
 ### 5. Discussion
-All three implementations of Naive Bayes perform exactly the same. 
-The smoothing parameters does not have the slightest influence. 
+The three different implementations of Naive Bayes have a comparable
+performance for larger sample sizes. For small samples sizes, 
+a relatively small value of $\alpha$ seems preferable over $\alpha =10$.  
 For small training sizes, Naive Bayes outperforms logistic regression.
 Interestingly, the Naive Bayes error does not decrease
 ofter given only about 25 training examples. It takes 
@@ -262,16 +314,17 @@ logistic regression on all features, but still slower than Naive Bayes.
 This is probably due to the fact that after this point, all is learned wat can be learned
 from the data. There are no new combinations to be found which would enable a better separation of the classes.
 
-```{r Trainperformance, warning=FALSE, cache=TRUE}
-#TrainPerformance <- calculateMeanPerformance(dataset = Train)
-```
-```{r TtraincomparisonPlot}
-#plotPerformance(TrainPerformance)
-#title(main = 'Training errors')
-```
+The next question is, do the models overfit? 
+For logistic regression, the error on the training set is lower than the test error. This indicates that 
+this model indeed suffers from overfitting. For Naive Bayes, there is only a very small difference between
+the two errors and for logistic regression, the training error is actually a little bigger
+than the test error. This suggest that these models, especially the latter, are too simple, and would benefit from adding some complexity. In the case of logistic regression, this is obvious: we 
+would do better when including more than just 2 features in the model. 
+In case of Naive Bayes, this hints that the assumption of
+independent feature values is actually too simple. 
+
+
 TO DO:
-1. Laplace smoothing maakt helemaal geen vershil. Waarom niet?
-2. Verschil test/training error (overfitting?)
 3. Prediction probabilities. 
 4. Bonus: penalized logistic regression. 
 5. Comments
