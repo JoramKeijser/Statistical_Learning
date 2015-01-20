@@ -111,8 +111,7 @@ $\alpha$ matter for small sample sizes. There is virtually no difference between
 $\alpha = 0.1$ and $\alpha = 1$. The error is slightly higher for $\alpha = 10$. 
 This difference vanishes for approximately $n=120$ and up. This is as might be expected,
 since adding 10 virtual counts does not matter when the actual count is high. 
-For the full model, `r 100*mean(pred[,2] > 0.9 | pred[,2] < 0.1)` percent of 
-the probability estimates are 'extreme': higher than 0.9 or lower than 0.1.
+
 
 ```{r plotNBloss, include=FALSE}
 plot(c(0, 220), c(0, 0.6), type = 'n', 
@@ -138,6 +137,12 @@ lwd=rep(2.5, 5), col=colors)
 title(main = 'Test errors')
 ```
 
+When using all data, `r round(1000*mean(pred[,2] > 0.9 | pred[,2] < 0.1))/10` percent of 
+the probability estimates are 'extreme': higher than 0.9 or lower than 0.1.
+
+```{r NBprobs, cache=TRUE}
+hist(pred[,1], xlab = "predicted probability", main = "Naive Bayes")
+```
 ### 2. Logistic Regression
 Next, we turn to logistic regression. 
 ```{r logr0, warning=FALSE}
@@ -174,12 +179,18 @@ trainLoss <- mean(lr.pred != Train$party)
 When using all `r dim(Train)[1]` training examples, the 
 mean 0/1-loss equals `r tail(lossLR, n = 1)`. The error on the training set
 is approximately half of that, `r trainLoss`. This indicates a some overfitting. 
+A total of `r round(1000*mean(lr.prob > 0.9 | lr.prob < 0.1))/10` percent of the cases is predicted
+with at least 0.9 certainty.
+
+```{r lgprobs, cache=TRUE}
+hist(lr.prob, xlab = "predicted probability", main = "Logistic regression")
+``` 
 
 
-### 3. Logistic Regression on first attributes
+### 3. Logistic Regression on two attributes
 Finally, we regress only on the first two attributes, `r names(Train[,2])` and `r names(Train[,3])`. 
 ```{r logr2, warning=FALSE}
-lr <- glm(party ~., data = Train[1:3], family = binomial("logit"))
+lr2 <- glm(party ~., data = Train[1:3], family = binomial("logit"))
 summary(lr)
 ```
 
@@ -198,10 +209,9 @@ lossLR2 <- getLR2loss(Train)
 plot(lossLR2[lossLR2 < 1], xlab = "size of training set", ylab = "mean 0/1-loss")
 ```
 ```{r, cache=TRUE, include=FALSE}
-tempTrain <- Train[, 1:3]
-lr.prob = predict(lr, type = "response")
-lr.pred = ifelse(lr.prob > 0.5, "republican", "democrat")
-TrainLoss <- mean(lr.pred != Train$party) #0.31 crappier
+lr2.prob = predict(lr2, type = "response")
+lr2.pred = ifelse(lr2.prob > 0.5, "republican", "democrat")
+TrainLoss <- mean(lr2.pred != Train$party)
 ```
 
 In this case, the result is nearly not as good as when regressing 
@@ -212,6 +222,12 @@ at this point. The test and trianing error equal `r tail(lossLR2, n = 1)` and `r
 respectively. It is very surprising that the training error is the highest of the two.
 The difference is not very big, but we are definitely not overfitting here. This
 is actually not very surprising, since the model is very simple. 
+Now, `r round(1000*mean(lr2.prob > 0.9 | lr2.prob < 0.1))/10` cases are predicted
+with certainty 0.9. 
+
+```{r lg2robs, cache=TRUE, include=FALSE}
+hist(lr.prob, xlab = "predicted probability", main = "Logistic regression on, 2 attributes")
+``` 
 
 ### 4. Comparison
 We write a wrapper method `getLosses` for calculating the losses of the three algorithms (Naive Bayes, logistic regression and subset logistic regression) all at once. Then, we 
@@ -324,8 +340,14 @@ In case of Naive Bayes, this hints that the assumption of
 independent feature values is actually too simple. 
 
 
+The prediction probabilities are most extreme for Naive Bayes. 
+In `r round(1000*mean(pred[,2] > 0.9 | pred[,2] < 0.1))/10` percent of the cases,
+the predicted probability is at least 0.9 (or at most 0.1). Logistic regression is a little
+less certain with `r round(1000*mean(lr.prob > 0.9 | lr.prob < 0.1))/10` percent. Logistic regression on 2 features has very low predicted probabilities. Exactly Now, `r round(1000*mean(lr2.prob > 0.9 | lr.prob < 0.1))/10` cases are predicted with certainty 0.9. percent of the cases is
+predicted with high certainty. This is in correspondence with the much higher error rate of this method. 
+Can we interpret these probabilities as an estimate of the error rate?
+
 TO DO:
-3. Prediction probabilities. 
 4. Bonus: penalized logistic regression. 
 5. Comments
 ### 6. BONUS!!!:D
