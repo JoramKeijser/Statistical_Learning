@@ -3,3 +3,5 @@ e1071
 randomForest
 zoo
 MASS
+Matrix
+glmnet

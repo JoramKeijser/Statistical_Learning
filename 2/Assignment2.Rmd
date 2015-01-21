@@ -22,7 +22,7 @@ Data <- read.table("http://archive.ics.uci.edu/ml/machine-learning-databases/vot
 ```
 
 There are `r sum(is.na(Data))` missing values. We replace the missing values
-by the most occuring value in the particular. For example, if
+by the most occuring value in the particular column. For example, if
 most votes on the `handicap` topic were a yes, than the missing votes on
 this topic will taken to be yes. This is done by the `na.roughfix` function. 
 ```{r missing}
@@ -226,7 +226,7 @@ Now, `r round(1000*mean(lr2.prob > 0.9 | lr2.prob < 0.1))/10` cases are predicte
 with certainty 0.9. 
 
 ```{r lg2robs, cache=TRUE, include=FALSE}
-hist(lr.prob, xlab = "predicted probability", main = "Logistic regression on, 2 attributes")
+hist(lr2.prob, xlab = "predicted probability", main = "Logistic regression on, 2 attributes")
 ``` 
 
 ### 4. Comparison
@@ -346,9 +346,42 @@ the predicted probability is at least 0.9 (or at most 0.1). Logistic regression 
 less certain with `r round(1000*mean(lr.prob > 0.9 | lr.prob < 0.1))/10` percent. Logistic regression on 2 features has very low predicted probabilities. Exactly Now, `r round(1000*mean(lr2.prob > 0.9 | lr.prob < 0.1))/10` cases are predicted with certainty 0.9. percent of the cases is
 predicted with high certainty. This is in correspondence with the much higher error rate of this method. 
 Can we interpret these probabilities as an estimate of the error rate?
+The mean number of times `r mean(apply(pred, 1, max))`, `r mean(sapply(lr.prob, max))`, `r mean(sapply(lr2.prob, max))`
 
 TO DO:
 4. Bonus: penalized logistic regression. 
 5. Comments
 ### 6. BONUS!!!:D
+ 
+```{r glmnet, include=FALSE}
+install.packages("glmnet", repos = "http://cran.xl-mirror.nl/")
+library(glmnet)
+``` 
+We use the package `glmnet` for penalized regression. First, we plot the coefficients
+versus the penalization factor $\lambda$, and estimate the optimal $\lambda$ 
+by cross validation. 
+```{r penLR, cache=TRUE}
+# Convert feature values to numeric 
+x <- sapply(Train[, -1], as.numeric) # N == 2, Y == 1.  
+y <- Train[,1]
+# Perform regression:
+penalizedLR <-  glmnet(x, y, family = "binomial")
+plot(penalizedLR, xvar = "lambda", label = TRUE)
+# Use cross validation to estimate best lambda
+cvPenalizedLR<-cv.glmnet(x, y, family="binomial", nfolds=10)
+plot(cvPenalizedLR)
+```
+
+Finally, we use the optimal lambda to make a prediction. 
+```{r penLR2, cache=TRUE}
+xTest <-  sapply(Test[, -1], as.numeric) 
+pred  <- predict(penalizedLR, xTest)
+bestpred <- pred[ ,which(cvPenalizedLR$lambda==cvPenalizedLR$lambda.min)]
+bestCharPred <- rep("democrat", length(bestpred))
+bestCharPred[bestpred > 0] <- "republican"
+View(bestCharPred)
+```
+
+The error on the test set equals `r mean(bestCharPred != Test[,1])`. 
+
 ### 6. Subset search.
