@@ -22,10 +22,10 @@ Data <- read.table("http://archive.ics.uci.edu/ml/machine-learning-databases/vot
 ```
 
 There are `r sum(is.na(Data))` missing values. We replace the missing values
-by the most occuring value in the particular column. For example, if
-most votes on the `handicap` topic were a yes, than the missing votes on
-this topic will taken to be yes. This is done by the `na.roughfix` function. 
-We do this seperately for the two parties.
+by the most occuring value in the particular column. This is done by the `na.roughfix` function. 
+We do this seperately for the two parties. For example, if
+most democrats voted yes on the topic of `handicap`, a missing democrat vote
+will taken to be yes as well.
 ```{r missing}
 #Data <- na.roughfix(Data)
 Data[Data[,1] == "democrat", ] <- na.roughfix(Data[Data[,1] == "democrat", ])
@@ -99,7 +99,7 @@ getNBloss <- function(lossData = Test) {
 lossNB <- getNBloss(Test)
 ```
 
-```{r TrainNB, cache=TRUE, include=FALSE}
+```{r TrainNB, include=FALSE, cache=TRUE}
 trainLoss <- getNBloss(Train)
 pred <- predict(NB, newdata = Test, type = "raw")
 ```
@@ -115,7 +115,7 @@ This difference vanishes for approximately $n=120$ and up. This is as might be e
 since adding 10 virtual counts does not matter when the actual count is high. 
 
 
-```{r plotNBloss, include=FALSE}
+```{r plotNBloss, include=FALSE, cache=TRUE}
 plot(c(0, 220), c(0, 0.6), type = 'n', 
 xlab = "Size of training set", ylab = "mean 0/1-loss",)
 colors = c("black", "blue", "red")
@@ -127,7 +127,7 @@ lwd=rep(2.5, 5), col=colors)
 title(main = 'Training errors')
 ```
 
-```{r plotNBTESTloss, include=FALSE}
+```{r plotNBTESTloss, include=FALSE,cache=TRUE}
 plot(c(0, 220), c(0, 0.6), type = 'n', 
 xlab = "Size of training set", ylab = "mean 0/1-loss",)
 colors = c("black", "blue", "red")
@@ -152,7 +152,7 @@ Next, we turn to logistic regression.
 #summary(lr)
 ```
 
-```{r logr, warning=FALSE}
+```{r logr, warning=FALSE, cache=TRUE}
 tryGetLoss <- function(tempTrain) {
   lr <- glm(party ~., data = tempTrain, family = binomial("logit"))
   lr.prob = predict(lr, newdata = Test, type = "response")
@@ -172,7 +172,7 @@ plot(lossLR[lossLR < 1], xlab = "size of training set", ylab = "mean 0/1-loss")
 #TO DO: confusion matrix, Naive Bayes line. 
 ```
 
-```{r LRtrainLoss, cache=TRUE, include=FALSE}
+```{r LRtrainLoss, include=FALSE, cache=TRUE}
 lr <- glm(party ~., data = Train, family = binomial("logit"))
 lr.prob = predict(lr, type = "response")
 lr.pred = ifelse(lr.prob > 0.5, "republican", "democrat")
@@ -196,7 +196,7 @@ lr2 <- glm(party ~., data = Train[1:3], family = binomial("logit"))
 summary(lr)
 ```
 
-```{r logr4, warning=FALSE}
+```{r logr4, warning=FALSE, cache=TRUE}
 getLR2loss <- function(Train) {
   lossLR2 <- numeric(dim(Train)[1])
   for(n in 1:218) { 
@@ -210,7 +210,7 @@ getLR2loss <- function(Train) {
 lossLR2 <- getLR2loss(Train)
 plot(lossLR2[lossLR2 < 1], xlab = "size of training set", ylab = "mean 0/1-loss")
 ```
-```{r, cache=TRUE, include=FALSE}
+```{r, include=FALSE, cache=TRUE}
 lr2.prob = predict(lr2, type = "response")
 lr2.pred = ifelse(lr2.prob > 0.5, "republican", "democrat")
 TrainLoss <- mean(lr2.pred != Train$party)
@@ -227,7 +227,7 @@ is actually not very surprising, since the model is very simple.
 Now, `r round(1000*mean(lr2.prob > 0.9 | lr2.prob < 0.1))/10` cases are predicted
 with certainty 0.9. 
 
-```{r lg2robs, cache=TRUE, include=FALSE}
+```{r lg2robs, include=FALSE, cache=TRUE}
 hist(lr2.prob, xlab = "predicted probability", main = "Logistic regression on, 2 attributes")
 ``` 
 
@@ -300,7 +300,7 @@ return(meanPerformance)
 TestPerformance <- calculateMeanPerformance()
 ```
 
-```{r TestcomparisonPlot}
+```{r TestcomparisonPlot, cache=TRUE}
 plotPerformance <- function(meanPerformance) {
   plot(c(0, 220), c(0, 0.6), type = 'n', 
        xlab = "Size of training set", ylab = "mean 0/1-loss",)
@@ -360,7 +360,7 @@ library(glmnet)
 We use the package `glmnet` for penalized regression. First, we plot the coefficients
 versus the penalization factor $\lambda$, and estimate the optimal $\lambda$. 
 by cross validation. 
-```{r penLR, cache=TRUE}
+```{r penLR}
 # Convert feature values to numeric 
 x <- sapply(Train[, -1], as.numeric) # N == 2, Y == 1.  
 y <- Train[,1]
@@ -376,12 +376,12 @@ Which features are included in the final model? Most of them, e.g. `physician` a
 have a high relative difference in votes, as displayed in the figure and list from the introduction.
 Others, such as `crime`, do not seperate the two parties as neatly. Apparently, they
 are useful in seperating the two classes when combined with the other 'non-zero featues'.
-```{r features, cache=TRUE}
+```{r features}
 coef(cvPenalizedLR)
 ``` 
 
 Finally, we use the optimal lambda to make a prediction. 
-```{r penLR2, cache=TRUE}
+```{r penLR2}
 xTest <-  sapply(Test[, -1], as.numeric) 
 pred  <- predict(penalizedLR, xTest)
 bestpred <- pred[ ,which(cvPenalizedLR$lambda==cvPenalizedLR$lambda.min)]
@@ -390,17 +390,12 @@ bestCharPred[bestpred > 0] <- "republican"
 View(bestCharPred)
 ```
 
-The error on the test set equals `r mean(bestCharPred != Test[,1])`, an slight improvement
-over the performance of non-penalized logistic regression. 
-Next, different sample sizes. From only $n = 4$, we have more ore less reached 
-the 'asymptotic' error rate! Hence, penalized logistic regression does not only 
-provide the best predictions, it does this also much, much faster than 
-Naive Bayes. This indicates that this method should be preferred
-also for small sample sizes. 
-```{r penLR3, cache=TRUE, warning=FALSE}
+The error on the test set equals Error rate: ` tail(lossPenalizedLR, n = 1)`.  This is an improvement
+over both Naive Bayes and non-penalized logistic regression. 
+```{r penLR3, warning=FALSE}
 tryGetPenalizedLoss <- function(x, y) {
   penalizedLR <-  glmnet(x, y, family = "binomial")
-  cvPenalizedLR<-cv.glmnet(x, y, family="binomial", nfolds=5)
+  cvPenalizedLR<-cv.glmnet(x, y, family="binomial", nfolds=10)
   pred  <- predict(penalizedLR, xTest)
   bestpred <- pred[ ,which(cvPenalizedLR$lambda==cvPenalizedLR$lambda.min)]
   bestCharPred <- rep("democrat", length(bestpred))
@@ -419,8 +414,110 @@ getPenalizedLRloss <- function(x, y) {
 x <- sapply(Train[, -1], as.numeric) # N == 2, Y == 1.  
 y <- Train[,1]
 xTest <-  sapply(Test[, -1], as.numeric) 
-lossLR <- getPenalizedLRloss(x, y)
-plot(lossLR[lossLR < 1], xlim = c(0, 220), ylim = c(0, 1), xlab = "size of training set", ylab = "mean 0/1-loss", type = 'l')
+lossPenalizedLR <- getPenalizedLRloss(x, y)
 ```
 
+The error on the test set equals Error rate: `r tail(lossPenalizedLR, n = 1)`.  This is an improvement
+over both Naive Bayes and non-penalized logistic regression. 
+Plotting the test error shows that this methods performance behaves somewhat
+erradic. This may be caused by tuning the penalization constant different for 
+each sample size. 
+The real advantage of penalizing shows when looking at the performance for different
+sample sizes. From only $n = 4$, the smallest sample size for which the regression algorithm
+is not hindered by linear dependencies in the data, we are very close to
+the 'asymptotic' error rate! Hence, penalized logistic regression
+provides the best predictions, it does this also much, much faster than 
+Naive Bayes. This indicates that this method should be preferred
+also for small sample sizes. 
 
+
+```{r samen, cache=TRUE}
+getLosses <- function(STEP){
+  
+  trainIndex <- sample.int(dim(Data)[1], size = round(dim(Data)[1]/2))
+  Train <- Data[trainIndex, ]
+  Test <- Data[-trainIndex, ]
+  x <- sapply(Train[, -1], as.numeric)
+  y <- Train[ ,1]
+
+  N = dim(Train)[1]
+  sampleSizes <- seq(1, N, by = STEP)
+  ## Naive Bayes:
+  getNBloss <- function(Train, Test) {
+    lossNB <- data.frame(matrix(ncol = length(alpha), nrow = length(sampleSizes)))
+    colnames(lossNB) <- alpha
+    rownames(lossNB) <- sampleSizes
+    for(n in sampleSizes) { 
+      for( k in 1:length(alpha)) {
+        tempTrain <- Train[1:n, ]
+        NB <- naiveBayes(party ~., data = tempTrain, laplace = alpha[k])
+        prediction <- predict(NB, newdata = Test)
+        lossNB[n, k] <- mean(Test$party != prediction)
+      }
+    }
+    return(lossNB)
+  }
+
+  # Logistic regression:
+  tryGetLoss <- function(tempTrain) {
+    lr <- glm(party ~., data = tempTrain, family = binomial("logit"))
+    lr.prob = predict(lr, newdata = Test, type = "response")
+    lr.pred = ifelse(lr.prob > 0.5, "republican", "democrat")
+    mean(lr.pred != Test$party)
+  }
+  getLRloss <- function(Train, Test) {
+    lossLR <- rep(NA, length(sampleSizes))
+    for(n in sampleSizes) { 
+      tempTrain <- Train[1:n, ]
+      lossLR[n] <- tryCatch(tryGetLoss(tempTrain), error = function(c) 1)
+    }
+    return(lossLR)
+  }
+  
+  # penalized logistic regression:
+  tryGetPenalizedLoss <- function(x, y) {
+  penalizedLR <-  glmnet(x, y, family = "binomial")
+  cvPenalizedLR<-cv.glmnet(x, y, family="binomial", nfolds=10)
+  pred  <- predict(penalizedLR, xTest)
+  bestpred <- pred[ ,which(cvPenalizedLR$lambda==cvPenalizedLR$lambda.min)]
+  bestCharPred <- rep("democrat", length(bestpred))
+  bestCharPred[bestpred > 0] <- "republican"
+  mean(bestCharPred != Test[, 1])
+}
+getPenalizedLRloss <- function(x, y) {
+  lossLR <- rep(1, length(sampleSizes))
+  for(n in sampleSizes) { 
+    xTemp <- x[1:n, ]
+    yTemp <- y[1:n]
+    lossLR[n] <- tryCatch(tryGetPenalizedLoss(xTemp, yTemp), error = function(c) 1)
+  }
+  return(lossLR)
+}
+
+  return(cbind(getNBloss(Train, Test), 
+               LRloss = getLRloss(Train, Test), 
+               LR2loss = getLRloss(Train[, 1:3], Test[1:3]),
+               penLRloss = getPenalizedLRloss(x, y)))
+}#getLosses
+```
+
+ 
+```{r Testcomparison2, warning=FALSE, cache=TRUE}
+alpha = 1
+TestPerformance <- calculateMeanPerformance()
+```
+
+```{r TestcomparisonPlot2, cache=TRUE}
+plotPerformance <- function(meanPerformance) {
+  plot(c(0, 220), c(0, 0.6), type = 'n', 
+       xlab = "Size of training set", ylab = "mean 0/1-loss",)
+  colors = c("black", "blue", "red", "yellow", "orange")
+  for(i in 2:5) { # 1 time NB
+    lines(meanPerformance[, i], type = 'l', col = colors[i])
+  }
+  legend(150, 0.6, c("NB 1",  "LG", "LG 2", "Penalized LR"), lty=rep(1, 4), 
+         lwd=rep(2.5, 4), col=colors)
+}
+plotPerformance(TestPerformance)
+title(main = 'Test errors')
+```
