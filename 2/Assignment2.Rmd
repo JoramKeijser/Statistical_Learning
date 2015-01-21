@@ -2,7 +2,7 @@
 title: 'Assignment 2: Classification'
 author: "Joram Keijser"
 date: "Wednesday, December 10, 2014"
-output: html_document
+output: pdf_document
 ---
 
 ```{r package, include=FALSE}
@@ -12,7 +12,7 @@ library("randomForest")
 
 ### 0. Introduction
 
-First, download the data. 
+We begin by downloading and preprocessing the data. 
 ```{r download}
 attributes <- c("party", "handicap", "water", "adoption", "physician", "el-salvador", 
                 "religious", "sattelite", "nicaraguan", 
@@ -23,7 +23,7 @@ Data <- read.table("http://archive.ics.uci.edu/ml/machine-learning-databases/vot
 
 There are `r sum(is.na(Data))` missing values. We replace the missing values
 by the most occuring value in the particular column. This is done by the `na.roughfix` function. 
-We do this seperately for the two parties. For example, if
+The replacement is performed seperately for the two parties. For example, if
 most democrats voted yes on the topic of `handicap`, a missing democrat vote
 will taken to be yes as well.
 ```{r missing}
@@ -48,23 +48,23 @@ Next, we will take a first look at the data. There are `r sum(REP)` republicans
 and `r sum(DEM)` democrats. On average, both parties voted 
 in favour approximately half of the time. 
 The biggest differences in voting behaviour are observed on the topic
-Physician. Only `r 100*mean(Data[DEM, "physician"] == "y")`percent
-of the democrats voted in favour. On the other hand, `r 100*mean(Data[REP, "physician"] == "y")` of the republicans were in favour. This indicates that it should be possible
+Physician. Only `r round(1000*mean(Data[DEM, "physician"] == "y"))/10` percent
+of the democrats voted in favour. On the other hand, `r round(1000*mean(Data[REP, "physician"] == "y"))/10` of the republicans were in favour. This indicates that it should be possible
 to make accurate predictions, based only on the voting behaviour on this single topic.
 ```{r plots1}
 ## plot mean number of yes's per party
-par(las=2) # make label text perpendicular to axis
-par(mar=c(5,8,4,2)) # increase y-axis margin.
-colours = c("red", "darkblue")
+par(las=2) 
+par(mar=c(5,8,4,2))
+colors = c("red", "darkblue")
 barplot(100*as.matrix(meanVotes[,-1]), beside = TRUE, col = colours, horiz=T, 
         xlim=c(0,100), xlab="Percentage of party voted in favour", ylab="Topic")
-legend("bottomright", legend = c("Repulicans", "Democrats"), fill = colours)
+legend("bottomright", legend = c("Repulicans", "Democrats"), fill = colors)
 sort(apply(meanVotes[,-1], 2, function(x){ 
 max(as.vector(x, mode = "numeric"))/min(as.vector(x, mode = "numeric"))}), 
 decreasing = TRUE)
 ```
 
-Finallly, divide the data in a training and test set.
+Before we begin with the actual analysis, we divide the data in a training and test set.
 ```{r test/train}
 set.seed(14122014)
 trainIndex <- sample.int(dim(Data)[1], size = round(dim(Data)[1]/2))
@@ -104,8 +104,8 @@ trainLoss <- getNBloss(Train)
 pred <- predict(NB, newdata = Test, type = "raw")
 ```
 Mean 0/1-losses when using all training data equals
-`r tail(lossNB, n = 1)` for $\alpha = 0.1, 1, 10$. The training losses are all equal to `r tail(trainLoss[,1], n= 1)`. Hence, the difference with the test error is neglectable and overfitting does not seem 
-to be an issue. 
+`r round(1000*tail(lossNB, n = 1))/1000` for $\alpha = 0.1, 1, 10$. The training losses are all equal to 
+`r round(1000*tail(trainLoss[,1], n= 1))/1000`. Hence, the difference with the test error is neglectable and overfitting does not seem to be an issue. 
 The difference, however small, increases with $\alpha$. Any overfitting 
 would hence occur for $\alpha = 10$. 
 Plotting the errors versus the size of the training set shows that the different values of
@@ -142,15 +142,18 @@ title(main = 'Test errors')
 When using all data, `r round(1000*mean(pred[,2] > 0.9 | pred[,2] < 0.1))/10` percent of 
 the probability estimates are 'extreme': higher than 0.9 or lower than 0.1.
 
-```{r NBprobs, cache=TRUE}
+```{r NBprobs, cache=TRUE, include=FALSE}
 hist(pred[,1], xlab = "predicted probability", main = "Naive Bayes")
 ```
+
+
+
+
 ### 2. Logistic Regression
-Next, we turn to logistic regression. 
-```{r logr0, warning=FALSE}
-#lr <- glm(party ~., data = Train, family = binomial("logit"))
-#summary(lr)
-```
+Next, we turn to logistic regression. The procedure does not work
+when there are linear dependencies in the data. This only happens
+for very small sample sizes. We solve, or rather anticipate, this issue 
+by catching any errors. 
 
 ```{r logr, warning=FALSE, cache=TRUE}
 tryGetLoss <- function(tempTrain) {
@@ -168,8 +171,7 @@ getLRloss <- function(Train) {
   return(lossLR)
 }
 lossLR <- getLRloss(Train)
-plot(lossLR[lossLR < 1], xlab = "size of training set", ylab = "mean 0/1-loss")
-#TO DO: confusion matrix, Naive Bayes line. 
+plot(lossLR[lossLR < 1], xlab = "size of training set", ylab = "mean 0/1-loss", main = 'Test errors')
 ```
 
 ```{r LRtrainLoss, include=FALSE, cache=TRUE}
@@ -184,17 +186,13 @@ is approximately half of that, `r trainLoss`. This indicates a some overfitting.
 A total of `r round(1000*mean(lr.prob > 0.9 | lr.prob < 0.1))/10` percent of the cases is predicted
 with at least 0.9 certainty.
 
-```{r lgprobs, cache=TRUE}
+```{r lgprobs, cache=TRUE, include=FALSE}
 hist(lr.prob, xlab = "predicted probability", main = "Logistic regression")
 ``` 
 
 
 ### 3. Logistic Regression on two attributes
 Finally, we regress only on the first two attributes, `r names(Train[,2])` and `r names(Train[,3])`. 
-```{r logr2, warning=FALSE}
-lr2 <- glm(party ~., data = Train[1:3], family = binomial("logit"))
-summary(lr)
-```
 
 ```{r logr4, warning=FALSE, cache=TRUE}
 getLR2loss <- function(Train) {
@@ -208,9 +206,10 @@ getLR2loss <- function(Train) {
   return(lossLR2)
 }
 lossLR2 <- getLR2loss(Train)
-plot(lossLR2[lossLR2 < 1], xlab = "size of training set", ylab = "mean 0/1-loss")
+plot(lossLR2[lossLR2 < 1], xlab = "size of training set", ylab = "mean 0/1-loss", main = "Logistic regression on 2 attributes")
 ```
 ```{r, include=FALSE, cache=TRUE}
+lr2 <- glm(party ~., data = Train[,1:3], family = binomial("logit"))
 lr2.prob = predict(lr2, type = "response")
 lr2.pred = ifelse(lr2.prob > 0.5, "republican", "democrat")
 TrainLoss <- mean(lr2.pred != Train$party)
@@ -220,7 +219,7 @@ In this case, the result is nearly not as good as when regressing
 on all variables. It isn't even as good as Naive Bayes. Interestingly,
 performance does not improve after seeing approximately $n=75$ training examples.
 Perhaps all useful possible combinations of the 2 features and the class have been seen
-at this point. The test and trianing error equal `r tail(lossLR2, n = 1)` and `r TrainLoss`, 
+at this point. The test and trianing error equal `r round(1000*tail(lossLR2, n = 1))/1000` and `r round(1000*TrainLoss)/1000`, 
 respectively. It is very surprising that the training error is the highest of the two.
 The difference is not very big, but we are definitely not overfitting here. This
 is actually not very surprising, since the model is very simple. 
@@ -228,7 +227,7 @@ Now, `r round(1000*mean(lr2.prob > 0.9 | lr2.prob < 0.1))/10` cases are predicte
 with certainty 0.9. 
 
 ```{r lg2robs, include=FALSE, cache=TRUE}
-hist(lr2.prob, xlab = "predicted probability", main = "Logistic regression on, 2 attributes")
+hist(lr2.prob, xlab = "predicted probability", main = "Logistic regression on 2 attributes")
 ``` 
 
 ### 4. Comparison
@@ -360,7 +359,7 @@ library(glmnet)
 We use the package `glmnet` for penalized regression. First, we plot the coefficients
 versus the penalization factor $\lambda$, and estimate the optimal $\lambda$. 
 by cross validation. 
-```{r penLR}
+```{r penLR, cache=TRUE}
 # Convert feature values to numeric 
 x <- sapply(Train[, -1], as.numeric) # N == 2, Y == 1.  
 y <- Train[,1]
@@ -369,30 +368,19 @@ penalizedLR <-  glmnet(x, y, family = "binomial")
 plot(penalizedLR, xvar = "lambda", label = TRUE)
 # Use cross validation to estimate best lambda
 cvPenalizedLR<-cv.glmnet(x, y, family="binomial", nfolds=10)
-#plot(cvPenalizedLR)
 ```
 
 Which features are included in the final model? Most of them, e.g. `physician` and  `adoption` 
 have a high relative difference in votes, as displayed in the figure and list from the introduction.
 Others, such as `crime`, do not seperate the two parties as neatly. Apparently, they
 are useful in seperating the two classes when combined with the other 'non-zero featues'.
-```{r features}
+```{r features, include=FALSE}
 coef(cvPenalizedLR)
 ``` 
 
-Finally, we use the optimal lambda to make a prediction. 
-```{r penLR2}
-xTest <-  sapply(Test[, -1], as.numeric) 
-pred  <- predict(penalizedLR, xTest)
-bestpred <- pred[ ,which(cvPenalizedLR$lambda==cvPenalizedLR$lambda.min)]
-bestCharPred <- rep("democrat", length(bestpred))
-bestCharPred[bestpred > 0] <- "republican"
-View(bestCharPred)
-```
+Finally, we will use the optimal lambda to make a prediction. 
 
-The error on the test set equals Error rate: ` tail(lossPenalizedLR, n = 1)`.  This is an improvement
-over both Naive Bayes and non-penalized logistic regression. 
-```{r penLR3, warning=FALSE}
+```{r penLR3, warning=FALSE, include=FALSE, cache=TRUE}
 tryGetPenalizedLoss <- function(x, y) {
   penalizedLR <-  glmnet(x, y, family = "binomial")
   cvPenalizedLR<-cv.glmnet(x, y, family="binomial", nfolds=10)
@@ -417,19 +405,18 @@ xTest <-  sapply(Test[, -1], as.numeric)
 lossPenalizedLR <- getPenalizedLRloss(x, y)
 ```
 
-The error on the test set equals Error rate: `r tail(lossPenalizedLR, n = 1)`.  This is an improvement
-over both Naive Bayes and non-penalized logistic regression. 
+The error on the test set equals Error rate: `r round(1000*tail(lossPenalizedLR, n = 1))/1000`.  This is an improvement over both Naive Bayes and non-penalized logistic regression. 
 Plotting the test error shows that this methods performance behaves somewhat
 erradic, because we did not perform multiple runs as for the other methods.
 The real advantage of penalizing shows when looking at the performance for different
 sample sizes. Even for very small sample sizes,  we are very close to
 the 'asymptotic' error rate! Hence, penalized logistic regression
 provides the best predictions, it does this also much, much faster than 
-Naive Bayes. This indicates that this method should be preferred
-also for small sample sizes. 
+Naive Bayes. This indicates that the method should be preferred even
+for small sample sizes. 
  
 
-```{r TestcomparisonPlot2, cache=TRUE}
+```{r TestcomparisonPlot2, cache=TRUE, include=FALSE}
 plotPerformance <- function(meanPerformance) {
   plot(c(0, 220), c(0, 0.6), type = 'n', 
        xlab = "Size of training set", ylab = "mean 0/1-loss",)
@@ -441,6 +428,9 @@ plotPerformance <- function(meanPerformance) {
   legend(150, 0.6, c("NB 1",  "LG", "LG 2", "Penalized LR"), lty=rep(1, 4), 
          lwd=rep(2.5, 4), col=colors[-1])
 }
+```
+
+```{r plotSamen}
 plotPerformance(TestPerformance)
 title(main = 'Test errors')
-```
+``` 
