@@ -420,103 +420,26 @@ lossPenalizedLR <- getPenalizedLRloss(x, y)
 The error on the test set equals Error rate: `r tail(lossPenalizedLR, n = 1)`.  This is an improvement
 over both Naive Bayes and non-penalized logistic regression. 
 Plotting the test error shows that this methods performance behaves somewhat
-erradic. This may be caused by tuning the penalization constant different for 
-each sample size. 
+erradic, because we did not perform multiple runs as for the other methods.
 The real advantage of penalizing shows when looking at the performance for different
-sample sizes. From only $n = 4$, the smallest sample size for which the regression algorithm
-is not hindered by linear dependencies in the data, we are very close to
+sample sizes. Even for very small sample sizes,  we are very close to
 the 'asymptotic' error rate! Hence, penalized logistic regression
 provides the best predictions, it does this also much, much faster than 
 Naive Bayes. This indicates that this method should be preferred
 also for small sample sizes. 
-
-
-```{r samen, cache=TRUE}
-getLosses <- function(STEP){
-  
-  trainIndex <- sample.int(dim(Data)[1], size = round(dim(Data)[1]/2))
-  Train <- Data[trainIndex, ]
-  Test <- Data[-trainIndex, ]
-  x <- sapply(Train[, -1], as.numeric)
-  y <- Train[ ,1]
-
-  N = dim(Train)[1]
-  sampleSizes <- seq(1, N, by = STEP)
-  ## Naive Bayes:
-  getNBloss <- function(Train, Test) {
-    lossNB <- data.frame(matrix(ncol = length(alpha), nrow = length(sampleSizes)))
-    colnames(lossNB) <- alpha
-    rownames(lossNB) <- sampleSizes
-    for(n in sampleSizes) { 
-      for( k in 1:length(alpha)) {
-        tempTrain <- Train[1:n, ]
-        NB <- naiveBayes(party ~., data = tempTrain, laplace = alpha[k])
-        prediction <- predict(NB, newdata = Test)
-        lossNB[n, k] <- mean(Test$party != prediction)
-      }
-    }
-    return(lossNB)
-  }
-
-  # Logistic regression:
-  tryGetLoss <- function(tempTrain) {
-    lr <- glm(party ~., data = tempTrain, family = binomial("logit"))
-    lr.prob = predict(lr, newdata = Test, type = "response")
-    lr.pred = ifelse(lr.prob > 0.5, "republican", "democrat")
-    mean(lr.pred != Test$party)
-  }
-  getLRloss <- function(Train, Test) {
-    lossLR <- rep(NA, length(sampleSizes))
-    for(n in sampleSizes) { 
-      tempTrain <- Train[1:n, ]
-      lossLR[n] <- tryCatch(tryGetLoss(tempTrain), error = function(c) 1)
-    }
-    return(lossLR)
-  }
-  
-  # penalized logistic regression:
-  tryGetPenalizedLoss <- function(x, y) {
-  penalizedLR <-  glmnet(x, y, family = "binomial")
-  cvPenalizedLR<-cv.glmnet(x, y, family="binomial", nfolds=10)
-  pred  <- predict(penalizedLR, xTest)
-  bestpred <- pred[ ,which(cvPenalizedLR$lambda==cvPenalizedLR$lambda.min)]
-  bestCharPred <- rep("democrat", length(bestpred))
-  bestCharPred[bestpred > 0] <- "republican"
-  mean(bestCharPred != Test[, 1])
-}
-getPenalizedLRloss <- function(x, y) {
-  lossLR <- rep(1, length(sampleSizes))
-  for(n in sampleSizes) { 
-    xTemp <- x[1:n, ]
-    yTemp <- y[1:n]
-    lossLR[n] <- tryCatch(tryGetPenalizedLoss(xTemp, yTemp), error = function(c) 1)
-  }
-  return(lossLR)
-}
-
-  return(cbind(getNBloss(Train, Test), 
-               LRloss = getLRloss(Train, Test), 
-               LR2loss = getLRloss(Train[, 1:3], Test[1:3]),
-               penLRloss = getPenalizedLRloss(x, y)))
-}#getLosses
-```
-
  
-```{r Testcomparison2, warning=FALSE, cache=TRUE}
-alpha = 1
-TestPerformance <- calculateMeanPerformance()
-```
 
 ```{r TestcomparisonPlot2, cache=TRUE}
 plotPerformance <- function(meanPerformance) {
   plot(c(0, 220), c(0, 0.6), type = 'n', 
        xlab = "Size of training set", ylab = "mean 0/1-loss",)
   colors = c("black", "blue", "red", "yellow", "orange")
-  for(i in 2:5) { # 1 time NB
-    lines(meanPerformance[, i], type = 'l', col = colors[i])
+  for(i in 3:5) { # 1 time NB
+    lines(meanPerformance[, i], type = 'l', col = colors[i-1])
   }
+  lines(lossPenalizedLR, type = 'l', col = colors[5])
   legend(150, 0.6, c("NB 1",  "LG", "LG 2", "Penalized LR"), lty=rep(1, 4), 
-         lwd=rep(2.5, 4), col=colors)
+         lwd=rep(2.5, 4), col=colors[-1])
 }
 plotPerformance(TestPerformance)
 title(main = 'Test errors')
